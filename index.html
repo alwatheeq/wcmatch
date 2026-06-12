@@ -51,6 +51,10 @@
   .score input.filled{border-color:var(--accent); background:#16301f;}
   .score .dash{color:var(--muted); font-weight:700;}
   .empty-day{color:var(--muted); text-align:center; padding:40px 0;}
+  .cdwrap{text-align:center; margin-top:10px;}
+  .cd{display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--accent2); font-size:.78rem; padding:3px 12px; border-radius:99px; font-weight:600;}
+  .cd.live{color:var(--accent); border-color:var(--accent); animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
 
   /* groups */
   .groups-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;}
@@ -87,7 +91,7 @@
 <body>
 <header>
   <h1>🏆 FIFA World Cup <span>2026</span> Tracker</h1>
-  <p>Enter results day by day · standings &amp; qualification chances update live<br><span id="tznote"></span></p>
+  <p>Enter results day by day · standings &amp; qualification chances update live<br><span id="tznote"></span><br><span id="syncnote"></span></p>
 </header>
 <div class="tabs">
   <button class="tab active" data-view="matches">📅 Matches</button>
@@ -187,6 +191,7 @@ const SEED_RESULTS = {1:[2,0], 2:[2,1]}; // June 11: Mexico 2-0 South Africa, So
 // ---------- state ----------
 const LS_KEY = "wc2026-results-v1";
 let results = loadResults();
+const liveScores = {}; // in-progress scores from auto-sync, not persisted
 function loadResults(){
   try{
     const saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
@@ -220,6 +225,81 @@ function localKickoff(m){
   return time;
 }
 document.getElementById("tznote").textContent = "Kickoff times shown in your local time — " + Intl.DateTimeFormat().resolvedOptions().timeZone;
+function countdownText(m){
+  if (results[m[0]]) return null;
+  const L = liveScores[m[0]];
+  if (L) return `● LIVE ${L.clock} ${L.h}–${L.a}`;
+  const diff = new Date(m[6]).getTime() - Date.now();
+  if (diff <= 0) return diff > -3*3600000 ? "● In progress" : null;
+  const d = Math.floor(diff/86400000), h = Math.floor(diff%86400000/3600000), mi = Math.floor(diff%3600000/60000);
+  if (d>0) return `⏳ Kicks off in ${d}d ${h}h`;
+  if (h>0) return `⏳ Kicks off in ${h}h ${mi}m`;
+  return `⏳ Kicks off in ${mi}m`;
+}
+setInterval(()=>{
+  document.querySelectorAll(".cd").forEach(el=>{
+    const m = MATCHES.find(x=>x[0]===+el.dataset.mid);
+    const t = countdownText(m);
+    if (!t) el.parentElement.remove();
+    else { el.textContent = t; el.classList.toggle("live", t.startsWith("●")); }
+  });
+}, 30000);
+
+// ---------- auto result sync (ESPN public scoreboard, every 5 min) ----------
+const NAME_TO_CODE = {
+  "Bosnia-Herzegovina":"BIH","Bosnia and Herzegovina":"BIH","Czech Republic":"CZE","Korea Republic":"KOR",
+  "USA":"USA","Turkey":"TUR","Côte d'Ivoire":"CIV","Cabo Verde":"CPV","Curacao":"CUW","IR Iran":"IRN",
+  "Democratic Republic of the Congo":"COD","Congo DR":"COD","Netherlands":"NED"
+};
+Object.entries(TEAMS).forEach(([code,[name]])=>{ NAME_TO_CODE[name] = code; });
+function espnCode(c){
+  const ab = c.team && c.team.abbreviation;
+  if (ab && TEAMS[ab]) return ab;
+  return NAME_TO_CODE[(c.team && (c.team.name || c.team.displayName)) || ""] || null;
+}
+async function syncResults(){
+  const note = document.getElementById("syncnote");
+  try{
+    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260627");
+    const j = await r.json();
+    let changed = false;
+    (j.events||[]).forEach(e=>{
+      const comp = e.competitions && e.competitions[0];
+      if (!comp || !comp.competitors) return;
+      const home = comp.competitors.find(c=>c.homeAway==="home");
+      const away = comp.competitors.find(c=>c.homeAway==="away");
+      const H = home && espnCode(home), A = away && espnCode(away);
+      if (!H || !A) return;
+      const m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      if (!m) return;
+      const id = m[0], flip = m[3]===A; // ESPN orientation vs ours
+      const hs = +(flip?away:home).score, as = +(flip?home:away).score;
+      const st = e.status && e.status.type;
+      if (st && st.completed){
+        delete liveScores[id];
+        const cur = results[id];
+        if (!cur || cur[0]!==hs || cur[1]!==as){ results[id]=[hs,as]; changed = true; }
+      } else if (st && st.state==="in"){
+        const clock = (e.status.displayClock || st.shortDetail || "").toString();
+        const prev = liveScores[id];
+        if (!prev || prev.h!==hs || prev.a!==as || prev.clock!==clock){ liveScores[id]={h:hs,a:as,clock}; changed = true; }
+      }
+    });
+    if (changed){
+      saveResults();
+      const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest(".score");
+      if (!typing){
+        if (!document.getElementById("view-matches").classList.contains("hidden")) renderMatches();
+        if (!document.getElementById("view-groups").classList.contains("hidden")) renderGroups();
+      }
+    }
+    note.textContent = "🔄 Scores auto-update every 5 min · last sync " + new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+  }catch(err){
+    note.textContent = "🔄 Auto-update unavailable (offline?) — manual entry still works. Retrying in 5 min.";
+  }
+}
+setInterval(syncResults, 5*60*1000);
+syncResults();
 
 // ---------- matches view ----------
 function renderDayStrip(){
@@ -262,6 +342,7 @@ function renderMatches(){
         </div>
         <div class="team">${flagImg(a,30)}<span>${TEAMS[a][0]}</span></div>
       </div>
+      ${(()=>{ const t = countdownText(m); return t?`<div class="cdwrap"><span class="cd${t.startsWith("●")?" live":""}" data-mid="${id}">${t}</span></div>`:""; })()}
     `;
     list.appendChild(card);
     const hi = card.querySelector(`#h${id}`), ai = card.querySelector(`#a${id}`);
