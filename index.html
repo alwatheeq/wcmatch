@@ -89,6 +89,47 @@
   .note{color:var(--muted); font-size:.8rem; text-align:center; margin-top:18px; line-height:1.5;}
   .hidden{display:none;}
 
+  /* placeholder team (knockout slot not yet resolved) */
+  .team.tbd{color:var(--muted); font-weight:500; font-style:italic; font-size:.86rem;}
+  .team.tbd span{line-height:1.2;}
+
+  /* penalty shootout picker */
+  .shootout{display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:8px;}
+  .shootout .solabel{color:var(--muted); font-size:.78rem;}
+  .sobtn{background:var(--panel2); border:1px solid var(--line); color:var(--muted); border-radius:99px; padding:4px 12px; font-size:.78rem; font-weight:600; cursor:pointer;}
+  .sobtn.sel{background:#16301f; border-color:var(--accent); color:var(--accent);}
+
+  /* bracket view */
+  .bracket-scroll{overflow-x:auto; padding-bottom:12px;}
+  .bracket{display:flex; gap:14px; min-width:min-content; align-items:stretch;}
+  .bcol{flex:0 0 200px; display:flex; flex-direction:column;}
+  .bcol h4{color:var(--accent2); font-size:.82rem; text-align:center; margin-bottom:8px; position:sticky; top:0;}
+  .bcol-inner{display:flex; flex-direction:column; justify-content:space-around; gap:10px; flex:1;}
+  .bmatch{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:7px 9px; cursor:pointer; transition:.12s;}
+  .bmatch:hover{border-color:var(--accent2);}
+  .bmatch.live{border-color:var(--accent);}
+  .bteam{display:flex; align-items:center; gap:7px; font-size:.82rem; font-weight:600; padding:2px 0;}
+  .bteam .bsc{margin-left:auto; font-weight:800; color:var(--text);}
+  .bteam.tbd{color:var(--muted); font-weight:500; font-style:italic;}
+  .bteam.win{color:var(--accent);}
+  .bteam.lose{color:var(--muted);}
+  .bteam.win .bsc{color:var(--accent);}
+  .bteam img.flag{flex:0 0 auto;}
+  .bteam .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bmatch .bmeta{color:var(--muted); font-size:.66rem; margin-top:4px; display:flex; justify-content:space-between;}
+  .bmatch .pen{color:var(--gold);}
+  .champ-banner{background:var(--panel); border:1px solid var(--gold); border-radius:12px; padding:14px; text-align:center; margin-bottom:14px;}
+  .champ-banner .ttl{color:var(--gold); font-size:.8rem; font-weight:700; letter-spacing:.5px;}
+  .champ-banner .nm{font-size:1.3rem; font-weight:800; margin-top:6px; display:flex; align-items:center; justify-content:center; gap:10px;}
+  .title-odds{margin-bottom:16px;}
+  .title-odds h3{color:var(--gold); font-size:1rem; margin-bottom:10px; text-align:center;}
+  .to-row{display:grid; grid-template-columns:1.4rem minmax(0,1fr) auto; align-items:center; gap:8px; padding:5px 0; border-top:1px solid var(--line); font-size:.88rem;}
+  .to-row:first-of-type{border-top:none;}
+  .to-row .rk{color:var(--muted); font-size:.78rem; text-align:right;}
+  .to-row .tm{display:flex; align-items:center; gap:8px; font-weight:600; min-width:0;}
+  .to-row .tm .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .to-row .pc{font-weight:700; color:var(--gold); white-space:nowrap;}
+
   /* mobile */
   @media (max-width: 520px){
     header{padding:14px 10px 4px;}
@@ -114,6 +155,10 @@
     .legend{font-size:.7rem;}
     .sim-head button{width:100%;}
     .sim-head span{font-size:.74rem;}
+    .team.tbd{font-size:.74rem;}
+    .bcol{flex-basis:158px;}
+    .bteam{font-size:.76rem;}
+    .champ-banner .nm{font-size:1.1rem;}
   }
 </style>
 </head>
@@ -125,7 +170,8 @@
 <div class="tabs">
   <button class="tab active" data-view="matches">📅 Matches</button>
   <button class="tab" data-view="groups">📊 Groups</button>
-  <button class="tab" data-view="chances">🎲 Qualification chances</button>
+  <button class="tab" data-view="bracket">🏆 Bracket</button>
+  <button class="tab" data-view="chances">🎲 Chances</button>
 </div>
 <main>
   <section id="view-matches">
@@ -143,13 +189,20 @@
     <div class="groups-grid" id="groupsgrid"></div>
   </section>
 
+  <section id="view-bracket" class="hidden">
+    <div id="champbanner"></div>
+    <div class="legend">Knockout bracket — fills in automatically from group standings and entered results. Round of 32 → Final. Tap a tie to jump to it.</div>
+    <div class="bracket-scroll"><div class="bracket" id="bracketgrid"></div></div>
+  </section>
+
   <section id="view-chances" class="hidden">
     <div class="sim-head">
       <button id="runsim">▶ Run simulation</button>
-      <span id="simstatus">Simulates remaining games 5,000× (Elo-weighted Poisson model). Entered results are locked in.</span>
+      <span id="simstatus">Simulates every remaining game through the final 5,000× (Elo-weighted Poisson model). Entered results are locked in.</span>
     </div>
+    <div id="titleodds"></div>
     <div class="groups-grid" id="chancesgrid"></div>
-    <div class="note">Green = chance of finishing top 2 · Gold = chance of advancing as one of the 8 best third-placed teams.<br>Round of 32: top 2 of each group + 8 best thirds (32 of 48 teams advance).</div>
+    <div class="note">Green = chance of finishing top 2 · Gold = chance of advancing as one of the 8 best third-placed teams.<br>Round of 32: top 2 of each group + 8 best thirds (32 of 48 teams advance). 🏆 = chance of winning the World Cup.</div>
   </section>
 </main>
 
@@ -217,6 +270,51 @@ const MATCHES = [
 ];
 const SEED_RESULTS = {1:[2,0], 2:[2,1]}; // June 11: Mexico 2-0 South Africa, South Korea 2-1 Czechia
 
+// ---------- knockout bracket (matches 73–104) ----------
+// Slot codes: "1X"=Group X winner, "2X"=Group X runner-up, "3X"=Group X third (if among best 8),
+//             "W##"=winner of match ##, "L##"=loser of match ##.
+// Third-place slots use the official FIFA assignment for the 2026 bracket.
+// [id, date(venue-local), round, homeSlot, awaySlot, venue, kickoff UTC]
+const KO_MATCHES = [
+  [73,"2026-06-28","R32","2A","2B","Los Angeles","2026-06-28T20:00Z"],
+  [74,"2026-06-29","R32","1E","3D","Boston","2026-06-29T16:00Z"],
+  [75,"2026-06-29","R32","1F","2C","Monterrey","2026-06-29T20:00Z"],
+  [76,"2026-06-29","R32","1C","2F","Houston","2026-06-30T00:00Z"],
+  [77,"2026-06-30","R32","1I","3F","New York/NJ","2026-06-30T21:00Z"],
+  [78,"2026-06-30","R32","2E","2I","Dallas","2026-06-30T17:00Z"],
+  [79,"2026-06-30","R32","1A","3E","Mexico City","2026-07-01T01:00Z"],
+  [80,"2026-07-01","R32","1L","3K","Atlanta","2026-07-01T16:00Z"],
+  [81,"2026-07-01","R32","1D","3B","San Francisco","2026-07-02T00:00Z"],
+  [82,"2026-07-01","R32","1G","3I","Seattle","2026-07-01T20:00Z"],
+  [83,"2026-07-02","R32","2K","2L","Toronto","2026-07-02T23:00Z"],
+  [84,"2026-07-02","R32","1H","3J","Los Angeles","2026-07-02T19:00Z"],
+  [85,"2026-07-02","R32","1B","2J","Vancouver","2026-07-03T03:00Z"],
+  [86,"2026-07-03","R32","1J","2H","Miami","2026-07-03T22:00Z"],
+  [87,"2026-07-03","R32","1K","3L","Kansas City","2026-07-04T01:30Z"],
+  [88,"2026-07-03","R32","2D","2G","Dallas","2026-07-03T18:00Z"],
+  [89,"2026-07-04","R16","W74","W77","Philadelphia","2026-07-04T21:00Z"],
+  [90,"2026-07-04","R16","W73","W75","Houston","2026-07-04T17:00Z"],
+  [91,"2026-07-05","R16","W76","W78","New York/NJ","2026-07-05T20:00Z"],
+  [92,"2026-07-05","R16","W79","W80","Mexico City","2026-07-06T00:00Z"],
+  [93,"2026-07-06","R16","W83","W84","Dallas","2026-07-06T19:00Z"],
+  [94,"2026-07-06","R16","W81","W82","Seattle","2026-07-07T00:00Z"],
+  [95,"2026-07-07","R16","W86","W88","Atlanta","2026-07-07T16:00Z"],
+  [96,"2026-07-07","R16","W85","W87","Vancouver","2026-07-07T20:00Z"],
+  [97,"2026-07-09","QF","W89","W90","Boston","2026-07-09T20:00Z"],
+  [98,"2026-07-10","QF","W93","W94","Los Angeles","2026-07-10T19:00Z"],
+  [99,"2026-07-11","QF","W91","W92","Miami","2026-07-11T20:00Z"],
+  [100,"2026-07-11","QF","W95","W96","Kansas City","2026-07-12T01:00Z"],
+  [101,"2026-07-14","SF","W97","W98","Dallas","2026-07-15T00:00Z"],
+  [102,"2026-07-15","SF","W99","W100","Atlanta","2026-07-16T00:00Z"],
+  [103,"2026-07-18","3RD","L101","L102","Miami","2026-07-18T19:00Z"],
+  [104,"2026-07-19","F","W101","W102","New York/NJ","2026-07-19T19:00Z"]
+];
+const ROUND_NAMES = {R32:"Round of 32", R16:"Round of 16", QF:"Quarter-final", SF:"Semi-final", "3RD":"Third-place play-off", F:"Final"};
+const ROUND_ORDER = ["R32","R16","QF","SF","3RD","F"];
+const ALL_MATCHES = MATCHES.concat(KO_MATCHES);
+// Official 2026 third-place assignment: R32 match id -> group whose 3rd-placed team it hosts.
+const THIRD_PREF = {74:"D", 77:"F", 79:"E", 80:"K", 81:"B", 82:"I", 84:"J", 87:"L"};
+
 // ---------- state ----------
 const LS_KEY = "wc2026-results-v1";
 let results = loadResults();
@@ -231,7 +329,7 @@ function saveResults(){
   localStorage.setItem(LS_KEY, JSON.stringify(results));
 }
 
-const DATES = [...new Set(MATCHES.map(m=>m[1]))];
+const DATES = [...new Set(ALL_MATCHES.map(m=>m[1]))].sort();
 const todayISO = new Date().toISOString().slice(0,10);
 let dayIdx = Math.max(0, DATES.findIndex(d=>d>=todayISO));
 if (todayISO > DATES[DATES.length-1]) dayIdx = DATES.length-1;
@@ -267,7 +365,7 @@ function countdownText(m){
 }
 setInterval(()=>{
   document.querySelectorAll(".cd").forEach(el=>{
-    const m = MATCHES.find(x=>x[0]===+el.dataset.mid);
+    const m = ALL_MATCHES.find(x=>x[0]===+el.dataset.mid);
     const t = countdownText(m);
     if (!t) el.parentElement.remove();
     else { el.textContent = t; el.classList.toggle("live", t.startsWith("●")); }
@@ -286,10 +384,23 @@ function espnCode(c){
   if (ab && TEAMS[ab]) return ab;
   return NAME_TO_CODE[(c.team && (c.team.name || c.team.displayName)) || ""] || null;
 }
+// Find our fixture for an ESPN pairing: group games by fixed teams, knockouts by resolved slots.
+// When two teams meet more than once (e.g. a knockout rematch of a group game), pick the
+// fixture whose kickoff is closest to the ESPN event's date.
+function findMatchByTeams(H, A, when){
+  const cands = ALL_MATCHES.filter(m=>{
+    const [h, a] = resolvePair(m, results);
+    return h && a && ((h===H&&a===A)||(h===A&&a===H));
+  });
+  if (cands.length <= 1) return cands[0] || null;
+  const t = when ? new Date(when).getTime() : Date.now();
+  return cands.reduce((best,m)=>
+    Math.abs(new Date(m[6]).getTime()-t) < Math.abs(new Date(best[6]).getTime()-t) ? m : best);
+}
 async function syncResults(){
   const note = document.getElementById("syncnote");
   try{
-    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260627");
+    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719");
     const j = await r.json();
     let changed = false;
     (j.events||[]).forEach(e=>{
@@ -299,15 +410,22 @@ async function syncResults(){
       const away = comp.competitors.find(c=>c.homeAway==="away");
       const H = home && espnCode(home), A = away && espnCode(away);
       if (!H || !A) return;
-      const m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      const m = findMatchByTeams(H, A, e.date);
       if (!m) return;
-      const id = m[0], flip = m[3]===A; // ESPN orientation vs ours
+      const id = m[0], ko = id >= 73;
+      const [ourHome] = resolvePair(m, results);  // our home side (fixed for groups, resolved for KO)
+      const flip = ourHome===A;                   // ESPN orientation vs ours
       const hs = +(flip?away:home).score, as = +(flip?home:away).score;
       const st = e.status && e.status.type;
       if (st && st.completed){
         delete liveScores[id];
+        const val = [hs, as];
+        if (ko && hs===as){                      // knockout tie decided on penalties
+          const hp = +(flip?away:home).shootoutScore, ap = +(flip?home:away).shootoutScore;
+          val[2] = (hp>=ap) ? "h" : "a";
+        }
         const cur = results[id];
-        if (!cur || cur[0]!==hs || cur[1]!==as){ results[id]=[hs,as]; changed = true; }
+        if (!cur || cur[0]!==val[0] || cur[1]!==val[1] || cur[2]!==val[2]){ results[id]=val; changed = true; }
       } else if (st && st.state==="in"){
         const clock = (e.status.displayClock || st.shortDetail || "").toString();
         const prev = liveScores[id];
@@ -320,6 +438,7 @@ async function syncResults(){
       if (!typing){
         if (!document.getElementById("view-matches").classList.contains("hidden")) renderMatches();
         if (!document.getElementById("view-groups").classList.contains("hidden")) renderGroups();
+        if (!document.getElementById("view-bracket").classList.contains("hidden")) renderBracket();
       }
     }
     note.textContent = "🔄 Scores auto-update every 5 min · last sync " + new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
@@ -335,7 +454,7 @@ function renderDayStrip(){
   const strip = document.getElementById("daystrip");
   strip.innerHTML = "";
   DATES.forEach((d,i)=>{
-    const ms = MATCHES.filter(m=>m[1]===d);
+    const ms = ALL_MATCHES.filter(m=>m[1]===d);
     const done = ms.filter(m=>results[m[0]]).length;
     const pill = document.createElement("div");
     pill.className = "daypill" + (i===dayIdx?" sel":"") + (done===ms.length?" done": done>0?" partial":"");
@@ -354,37 +473,65 @@ function renderMatches(){
   document.getElementById("nextday").disabled = dayIdx===DATES.length-1;
   const list = document.getElementById("matchlist");
   list.innerHTML = "";
-  const ms = MATCHES.filter(m=>m[1]===DATES[dayIdx]);
-  ms.forEach(m=>{
-    const [id,,grp,h,a,venue] = m;
-    const r = results[id];
-    const card = document.createElement("div");
-    card.className = "match";
-    card.innerHTML = `
-      <div class="meta"><span class="grp">Group ${grp}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
-      <div class="row">
-        <div class="team right"><span>${TEAMS[h][0]}</span>${flagImg(h,30)}</div>
-        <div class="score">
-          <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}">
-          <span class="dash">–</span>
-          <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}">
-        </div>
-        <div class="team">${flagImg(a,30)}<span>${TEAMS[a][0]}</span></div>
+  const ms = ALL_MATCHES.filter(m=>m[1]===DATES[dayIdx]);
+  ms.forEach(m=>{ list.appendChild(buildMatchCard(m)); });
+  if (!ms.length) list.innerHTML = `<div class="empty-day">No matches this day.</div>`;
+}
+// Render one side of a match: real flag+name when known, otherwise a placeholder label.
+function teamCell(code, slot, right){
+  if (code) return `<div class="team${right?" right":""}">${right?`<span>${TEAMS[code][0]}</span>${flagImg(code,30)}`:`${flagImg(code,30)}<span>${TEAMS[code][0]}</span>`}</div>`;
+  return `<div class="team${right?" right":""} tbd"><span>${slotLabel(slot)}</span></div>`;
+}
+function buildMatchCard(m){
+  const id = m[0], ko = id >= 73;
+  const grp = m[2], venue = m[5];
+  const r = results[id];
+  const [h, a] = resolvePair(m, results);
+  const ready = !ko || (h && a);            // can a score be entered yet?
+  const card = document.createElement("div");
+  card.className = "match";
+  const label = ko ? ROUND_NAMES[grp] : "Group " + grp;
+  const dis = ready ? "" : " disabled";
+  // penalty-shootout picker shown when a knockout tie is level
+  const shoot = (ko && r && r[0]===r[1] && h && a) ? `
+      <div class="cdwrap shootout">
+        <span class="solabel">Penalties:</span>
+        <button class="sobtn${r[2]==="h"?" sel":""}" data-mid="${id}" data-side="h">${TEAMS[h][0]} won</button>
+        <button class="sobtn${r[2]==="a"?" sel":""}" data-mid="${id}" data-side="a">${TEAMS[a][0]} won</button>
+      </div>` : "";
+  card.innerHTML = `
+    <div class="meta"><span class="grp">${label}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
+    <div class="row">
+      ${teamCell(h, m[3], true)}
+      <div class="score">
+        <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}"${dis}>
+        <span class="dash">–</span>
+        <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}"${dis}>
       </div>
-      ${(()=>{ const t = countdownText(m); return t?`<div class="cdwrap"><span class="cd${t.startsWith("●")?" live":""}" data-mid="${id}">${t}</span></div>`:""; })()}
-    `;
-    list.appendChild(card);
+      ${teamCell(a, m[4], false)}
+    </div>
+    ${shoot}
+    ${(()=>{ const t = countdownText(m); return t?`<div class="cdwrap"><span class="cd${t.startsWith("●")?" live":""}" data-mid="${id}">${t}</span></div>`:""; })()}
+  `;
+  if (ready){
     const hi = card.querySelector(`#h${id}`), ai = card.querySelector(`#a${id}`);
     const onchange = ()=>{
       const hv = hi.value.trim(), av = ai.value.trim();
       if (hv!=="" && av!=="" && +hv>=0 && +av>=0){
-        results[id] = [+hv, +av]; saveResults(); renderMatches();
+        const prev = results[id];
+        results[id] = [+hv, +av];
+        // preserve the shootout winner on a level knockout score, default to home side
+        if (id>=73 && +hv===+av) results[id][2] = (prev && prev[2]) ? prev[2] : "h";
+        saveResults(); renderMatches();
       }
     };
     hi.addEventListener("change", onchange);
     ai.addEventListener("change", onchange);
+  }
+  card.querySelectorAll(".sobtn").forEach(b=>{
+    b.onclick = ()=>{ const rr = results[id]; if (rr){ rr[2] = b.dataset.side; saveResults(); renderMatches(); } };
   });
-  if (!ms.length) list.innerHTML = `<div class="empty-day">No matches this day.</div>`;
+  return card;
 }
 document.getElementById("prevday").onclick = ()=>{ if(dayIdx>0){dayIdx--; renderMatches();} };
 document.getElementById("nextday").onclick = ()=>{ if(dayIdx<DATES.length-1){dayIdx++; renderMatches();} };
@@ -415,6 +562,60 @@ function headToHead(group, resultSet, t1, t2){
   if (winner===t2) return 1;
   return 0;
 }
+
+// ---------- knockout slot resolution ----------
+function groupDecided(g, rs){ return MATCHES.filter(m=>m[2]===g).every(m=>rs[m[0]]); }
+function bestThirdGroups(rs){
+  // Set of group letters whose 3rd-placed team is among the best 8; null until all groups decided.
+  if (!Object.keys(GROUPS).every(g=>groupDecided(g, rs))) return null;
+  const arr = Object.keys(GROUPS).map(g=>({g, s:computeTable(g, rs)[2]}));
+  arr.sort((x,y)=> y.s.pts-x.s.pts || (y.s.gf-y.s.ga)-(x.s.gf-x.s.ga) || y.s.gf-x.s.gf || x.g.localeCompare(y.g));
+  return new Set(arr.slice(0,8).map(o=>o.g));
+}
+function resolveSlot(slot, rs){
+  if (!slot) return null;
+  const c = slot[0], rest = slot.slice(1);
+  if (c==="1" || c==="2"){
+    if (!groupDecided(rest, rs)) return null;
+    return computeTable(rest, rs)[c==="1"?0:1].t;
+  }
+  if (c==="3"){
+    const q = bestThirdGroups(rs);
+    if (!q || !q.has(rest)) return null;
+    return computeTable(rest, rs)[2].t;
+  }
+  if (c==="W" || c==="L"){
+    const mm = ALL_MATCHES.find(x=>x[0]===+rest);
+    if (!mm) return null;
+    const o = matchOutcome(mm, rs);
+    return c==="W" ? o.winner : o.loser;
+  }
+  return null;
+}
+function resolvePair(m, rs){
+  return m[0] < 73 ? [m[3], m[4]] : [resolveSlot(m[3], rs), resolveSlot(m[4], rs)];
+}
+function matchOutcome(m, rs){
+  const [h, a] = resolvePair(m, rs);
+  const r = rs[m[0]];
+  let winner = null, loser = null;
+  if (r){
+    if (r[0] > r[1]) { winner = h; loser = a; }
+    else if (r[1] > r[0]) { winner = a; loser = h; }
+    else if (r[2]==="h") { winner = h; loser = a; }
+    else if (r[2]==="a") { winner = a; loser = h; }
+  }
+  return {h, a, winner, loser};
+}
+function slotLabel(slot){
+  const c = slot[0], rest = slot.slice(1);
+  if (c==="1") return "Winner Group " + rest;
+  if (c==="2") return "Runner-up Group " + rest;
+  if (c==="3") return "3rd Place " + rest;
+  if (c==="W") return "Winner Match " + rest;
+  if (c==="L") return "Loser Match " + rest;
+  return slot;
+}
 function renderGroups(){
   const grid = document.getElementById("groupsgrid");
   grid.innerHTML = "";
@@ -434,6 +635,58 @@ function renderGroups(){
   });
 }
 
+// ---------- bracket view ----------
+function moDay(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("en-US",{month:"short", day:"numeric"}); }
+function bracketTeamRow(m, slotIdx){
+  const o = matchOutcome(m, results);
+  const code = slotIdx===0 ? o.h : o.a;
+  const slot = m[slotIdx===0 ? 3 : 4];
+  const r = results[m[0]];
+  const sc = r ? (slotIdx===0 ? r[0] : r[1]) : "";
+  let cls = "bteam";
+  if (!code) cls += " tbd";
+  else if (o.winner) cls += (code===o.winner) ? " win" : " lose";
+  const nm = code ? TEAMS[code][0] : slotLabel(slot);
+  const flag = code ? flagImg(code,20) : "";
+  return `<div class="${cls}">${flag}<span class="nm">${nm}</span><span class="bsc">${sc}</span></div>`;
+}
+function renderBracket(){
+  const grid = document.getElementById("bracketgrid");
+  const banner = document.getElementById("champbanner");
+  grid.innerHTML = ""; banner.innerHTML = "";
+  const fin = matchOutcome(KO_MATCHES.find(m=>m[0]===104), results);
+  if (fin.winner)
+    banner.innerHTML = `<div class="champ-banner"><div class="ttl">🏆 WORLD CHAMPIONS</div><div class="nm">${flagImg(fin.winner,34)}${TEAMS[fin.winner][0]}</div></div>`;
+  const COLS = [["R32","Round of 32"],["R16","Round of 16"],["QF","Quarter-finals"],["SF","Semi-finals"],["F","Final"],["3RD","3rd place"]];
+  COLS.forEach(([rd,title])=>{
+    const col = document.createElement("div");
+    col.className = "bcol";
+    const inner = KO_MATCHES.filter(m=>m[2]===rd).map(m=>{
+      const r = results[m[0]];
+      const o = matchOutcome(m, results);
+      const t = countdownText(m);
+      const live = t && t.startsWith("●");
+      const right = (r && r[0]===r[1] && o.winner) ? `<span class="pen">pens</span>` : `<span>${moDay(m[1])}</span>`;
+      return `<div class="bmatch${live?" live":""}" data-mid="${m[0]}">
+        ${bracketTeamRow(m,0)}
+        ${bracketTeamRow(m,1)}
+        <div class="bmeta"><span>#${m[0]}</span>${right}</div>
+      </div>`;
+    }).join("");
+    col.innerHTML = `<h4>${title}</h4><div class="bcol-inner">${inner}</div>`;
+    grid.appendChild(col);
+  });
+  grid.querySelectorAll(".bmatch").forEach(el=>{ el.onclick = ()=>goToMatchDay(+el.dataset.mid); });
+}
+function goToMatchDay(id){
+  const m = ALL_MATCHES.find(x=>x[0]===id);
+  if (!m) return;
+  const i = DATES.indexOf(m[1]);
+  if (i>=0) dayIdx = i;
+  switchView("matches");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
 // ---------- simulation ----------
 function poisson(lambda){
   let L = Math.exp(-lambda), p = 1, k = 0;
@@ -446,26 +699,88 @@ function simulateMatch(h, a){
   const la = Math.max(0.15, 1.35 - diff/350);
   return [poisson(lh), poisson(la)];
 }
+// winner of a knockout tie: regulation, else Elo-weighted penalty shootout
+function simWinner(h, a){
+  if (!h) return a; if (!a) return h;
+  const [gh, ga] = simulateMatch(h, a);
+  if (gh > ga) return h;
+  if (ga > gh) return a;
+  const p = 1/(1+Math.pow(10,(TEAMS[a][2]-TEAMS[h][2])/400));
+  return Math.random() < p ? h : a;
+}
+// assign the 8 qualifying third-place groups to the 8 winner-vs-third slots
+const TP_WINGROUP = {74:"E",77:"I",79:"A",80:"L",81:"D",82:"G",84:"H",87:"K"};
+function simAssignThirds(qGroups){
+  const slots = [74,77,79,80,81,82,84,87];
+  const avail = new Set(qGroups), assign = {};
+  slots.forEach(id=>{ const g=THIRD_PREF[id]; if(avail.has(g)){ assign[id]=g; avail.delete(g); } }); // honour official template
+  slots.forEach(id=>{ if(assign[id]) return; for(const g of avail){ if(g!==TP_WINGROUP[id]){ assign[id]=g; avail.delete(g); break; } } });
+  slots.forEach(id=>{ if(assign[id]) return; const g=avail.values().next().value; if(g!==undefined){ assign[id]=g; avail.delete(g); } });
+  return assign;
+}
+function simulateBracket(simTables, thirdAssign, realWin, champ, finalist){
+  const teamOf = (slot, mid)=>{
+    const c = slot[0], rest = slot.slice(1);
+    if (c==="1") return simTables[rest][0].t;
+    if (c==="2") return simTables[rest][1].t;
+    if (c==="3"){ const g = thirdAssign[mid]; return g ? simTables[g][2].t : null; }
+    return null;
+  };
+  const win = {}, lose = {};
+  for (const m of KO_MATCHES){
+    const id = m[0];
+    let h, a;
+    if (m[2]==="R32"){ h = teamOf(m[3], id); a = teamOf(m[4], id); }
+    else {
+      h = m[3][0]==="W" ? win[+m[3].slice(1)] : lose[+m[3].slice(1)];
+      a = m[4][0]==="W" ? win[+m[4].slice(1)] : lose[+m[4].slice(1)];
+    }
+    const rw = realWin[id];                 // entered result, if it involves these teams, is locked
+    const w = (rw && (rw===h || rw===a)) ? rw : simWinner(h, a);
+    win[id] = w; lose[id] = (w===h ? a : h);
+  }
+  if (win[104]) champ[win[104]]++;
+  if (win[101]) finalist[win[101]]++;
+  if (win[102]) finalist[win[102]]++;
+}
 function runSimulation(iters){
-  const adv = {}, top2 = {}, third = {};
-  Object.values(GROUPS).flat().forEach(t=>{adv[t]=0; top2[t]=0; third[t]=0;});
+  const adv = {}, top2 = {}, third = {}, champ = {}, finalist = {};
+  Object.values(GROUPS).flat().forEach(t=>{adv[t]=0; top2[t]=0; third[t]=0; champ[t]=0; finalist[t]=0;});
   const unplayed = MATCHES.filter(m=>!results[m[0]]);
+  const realWin = {};
+  KO_MATCHES.forEach(m=>{ realWin[m[0]] = matchOutcome(m, results).winner; });
   for (let it=0; it<iters; it++){
     const sim = Object.assign({}, results);
     unplayed.forEach(m=>{ sim[m[0]] = simulateMatch(m[3], m[4]); });
-    const thirds = [];
+    const thirds = [], simTables = {};
     Object.keys(GROUPS).forEach(g=>{
       const tbl = computeTable(g, sim);
+      simTables[g] = tbl;
       top2[tbl[0].t]++; top2[tbl[1].t]++;
       adv[tbl[0].t]++; adv[tbl[1].t]++;
+      tbl[2].g = g;                 // tag third-placed team with its group for slot assignment
       thirds.push(tbl[2]);
     });
     thirds.sort((x,y)=> y.pts-x.pts || (y.gf-y.ga)-(x.gf-x.ga) || y.gf-x.gf || Math.random()-0.5);
-    for (let i=0;i<8;i++){ adv[thirds[i].t]++; third[thirds[i].t]++; }
+    const qGroups = [];
+    for (let i=0;i<8;i++){ adv[thirds[i].t]++; third[thirds[i].t]++; qGroups.push(thirds[i].g); }
+    simulateBracket(simTables, simAssignThirds(qGroups), realWin, champ, finalist);
   }
-  return {adv, top2, third, iters};
+  return {adv, top2, third, champ, finalist, iters};
+}
+function renderTitleOdds(sr){
+  const box = document.getElementById("titleodds");
+  const arr = Object.values(GROUPS).flat()
+    .map(t=>({t, p:sr.champ[t]/sr.iters*100}))
+    .filter(o=>o.p>0).sort((a,b)=>b.p-a.p).slice(0,8);
+  if (!arr.length){ box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="title-odds"><h3>🏆 Title favourites</h3>${arr.map((o,i)=>
+    `<div class="to-row"><span class="rk">${i+1}</span>
+      <span class="tm">${flagImg(o.t,22)}<span class="nm">${TEAMS[o.t][0]}</span></span>
+      <span class="pc">${o.p<0.05?"&lt;0.1":o.p.toFixed(1)}%</span></div>`).join("")}</div>`;
 }
 function renderChances(simResult){
+  renderTitleOdds(simResult);
   const grid = document.getElementById("chancesgrid");
   grid.innerHTML = "";
   Object.keys(GROUPS).forEach(g=>{
@@ -476,12 +791,14 @@ function renderChances(simResult){
       const p2 = simResult.top2[t]/simResult.iters*100;
       const p3 = simResult.third[t]/simResult.iters*100;
       const pa = simResult.adv[t]/simResult.iters*100;
+      const pc = simResult.champ[t]/simResult.iters*100;
       const cls = pa>=99.95?"qd":pa<=0.05?"el":"";
       const txt = pa>=99.95?"100%":pa<=0.05?"OUT":pa.toFixed(1)+"%";
+      const champTxt = pc>=0.05 ? ` · 🏆${pc.toFixed(1)}%` : "";
       return `<div class="chance-row">
         <div class="chance-team">${flagImg(t,22)}${TEAMS[t][0]}</div>
         <div class="bar"><div class="b1" style="width:${p2}%"></div><div class="b3" style="width:${p3}%"></div></div>
-        <div class="pct ${cls}">${txt} <small>(${p2.toFixed(0)}+${p3.toFixed(0)})</small></div>
+        <div class="pct ${cls}">${txt} <small>(${p2.toFixed(0)}+${p3.toFixed(0)})${champTxt}</small></div>
       </div>`;
     }).join("");
     card.innerHTML = `<h3>Group ${g}</h3>${rows}`;
@@ -501,18 +818,17 @@ document.getElementById("runsim").onclick = ()=>{
 };
 
 // ---------- tabs ----------
-document.querySelectorAll(".tab").forEach(tab=>{
-  tab.onclick = ()=>{
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    tab.classList.add("active");
-    ["matches","groups","chances"].forEach(v=>{
-      document.getElementById("view-"+v).classList.toggle("hidden", v!==tab.dataset.view);
-    });
-    if (tab.dataset.view==="groups") renderGroups();
-    if (tab.dataset.view==="chances" && !document.getElementById("chancesgrid").children.length)
-      document.getElementById("runsim").click();
-  };
-});
+function switchView(view){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.view===view));
+  ["matches","groups","bracket","chances"].forEach(v=>{
+    document.getElementById("view-"+v).classList.toggle("hidden", v!==view);
+  });
+  if (view==="groups") renderGroups();
+  if (view==="bracket") renderBracket();
+  if (view==="chances" && !document.getElementById("chancesgrid").children.length)
+    document.getElementById("runsim").click();
+}
+document.querySelectorAll(".tab").forEach(tab=>{ tab.onclick = ()=>switchView(tab.dataset.view); });
 
 renderMatches();
 </script>
