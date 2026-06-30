@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="FIFA World Cup 2026 tracker — live results, group standings, and qualification chances, updated every 5 minutes.">
+<meta name="description" content="FIFA World Cup 2026 tracker — live results, group standings, and qualification chances from Matchday 1 through the Final, updated every 5 minutes.">
 <title>World Cup 2026 Tracker</title>
 <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
 <style>
@@ -52,6 +52,9 @@
   .score input:focus{outline:none; border-color:var(--accent);}
   .score input.filled{border-color:var(--accent); background:#16301f;}
   .score .dash{color:var(--muted); font-weight:700;}
+  .team .tbd{color:var(--muted); font-style:italic; font-weight:500; font-size:.88rem;}
+  .pens{display:flex; align-items:center; justify-content:center; gap:6px; margin-top:8px; color:var(--muted); font-size:.78rem;}
+  .pens input{width:34px; height:30px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:.85rem; text-align:center;}
   .empty-day{color:var(--muted); text-align:center; padding:40px 0;}
   .cdwrap{text-align:center; margin-top:10px;}
   .cd{display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--accent2); font-size:.78rem; padding:3px 12px; border-radius:99px; font-weight:600;}
@@ -72,6 +75,28 @@
   tr.q3 td:first-child{box-shadow:inset 3px 0 0 var(--gold);}
   .legend{color:var(--muted); font-size:.78rem; margin:12px 4px; text-align:center;}
   .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin:0 4px 0 12px;}
+
+  /* bracket */
+  .bracket-scroll{overflow-x:auto; padding:26px 4px 10px;}
+  .bracket-wrap{position:relative; margin:0 auto;}
+  .bnode{position:absolute; background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .bnode .bcap{position:absolute; top:-16px; left:0; right:0; text-align:center; font-size:.6rem; color:var(--muted); font-weight:700; letter-spacing:.03em; white-space:nowrap;}
+  .bnode .brow{display:flex; align-items:center; gap:5px; padding:0 7px; font-size:.72rem; font-weight:700; height:50%;}
+  .bnode .brow:first-child{border-bottom:1px solid var(--line);}
+  .bnode .brow img{width:15px; flex:0 0 auto; border-radius:2px;}
+  .bnode .brow .code{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bnode .brow .code.tbd{color:var(--muted); font-style:italic; font-weight:500; font-size:.68rem;}
+  .bnode .brow .bscore{font-weight:800; color:var(--accent); font-size:.78rem;}
+  .bnode.bfinal{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 2px 10px rgba(251,191,36,.25);}
+  .bnode.bfinal .bcap{color:var(--gold);}
+  .bnode.bthird .bcap{color:var(--muted);}
+  .bgcard{position:absolute; background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--accent2); border-radius:8px; padding:4px 7px; overflow:hidden;}
+  .bgcard h4{font-size:.68rem; margin-bottom:1px; color:var(--text); line-height:1.2;}
+  .bgcard .bgrow{display:flex; align-items:center; gap:4px; font-size:.6rem; color:var(--muted); line-height:1.32;}
+  .bgcard .bgrow.q1{color:var(--accent); font-weight:700;}
+  .bgcard .bgrow.q3{color:var(--gold); font-weight:700;}
+  .bgcard .bgrow img{width:12px; border-radius:1px;}
+  .btrophy{position:absolute; font-size:1.6rem; text-align:center; width:60px; margin-left:-30px;}
 
   /* chances */
   .sim-head{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:16px; flex-wrap:wrap;}
@@ -126,6 +151,7 @@
   <button class="tab active" data-view="matches">📅 Matches</button>
   <button class="tab" data-view="groups">📊 Groups</button>
   <button class="tab" data-view="chances">🎲 Qualification chances</button>
+  <button class="tab" data-view="bracket">🏆 Bracket</button>
 </div>
 <main>
   <section id="view-matches">
@@ -150,6 +176,11 @@
     </div>
     <div class="groups-grid" id="chancesgrid"></div>
     <div class="note">Green = chance of finishing top 2 · Gold = chance of advancing as one of the 8 best third-placed teams.<br>Round of 32: top 2 of each group + 8 best thirds (32 of 48 teams advance).</div>
+  </section>
+
+  <section id="view-bracket" class="hidden">
+    <div class="legend">Live bracket · resolved teams shown in full, undecided slots show their qualification code (e.g. <b>1A</b> = Group A winner, <b>W74</b> = winner of Match 74) until determined.</div>
+    <div id="bracketwrap"></div>
   </section>
 </main>
 
@@ -215,11 +246,51 @@ const MATCHES = [
   [69,"2026-06-27","K","COL","POR","Miami","2026-06-27T23:30Z"],[70,"2026-06-27","K","COD","UZB","Atlanta","2026-06-27T23:30Z"],
   [71,"2026-06-27","J","ALG","AUT","Kansas City","2026-06-28T02:00Z"],[72,"2026-06-27","J","JOR","ARG","Dallas","2026-06-28T02:00Z"]
 ];
+// knockout stage: [id, date(venue-local), round, home-slot, away-slot, venue, kickoff UTC]
+// slot codes: "1A"/"2A"/"3A" = winner/runner-up/3rd-place of group A; "W73" = winner of match 73; "L101" = loser of match 101
+const ROUND_LABEL = {R32:"Round of 32", R16:"Round of 16", QF:"Quarter-final", SF:"Semi-final", THIRD:"3rd Place Play-off", FIN:"Final"};
+const KO_MATCHES = [
+  [73,"2026-06-28","R32","2A","2B","Los Angeles","2026-06-28T19:00Z"],
+  [74,"2026-06-29","R32","1E","3D","Boston","2026-06-29T20:30Z"],
+  [75,"2026-06-29","R32","1F","2C","Monterrey","2026-06-30T01:00Z"],
+  [76,"2026-06-29","R32","1C","2F","Houston","2026-06-29T17:00Z"],
+  [77,"2026-06-30","R32","1I","3F","New York/NJ","2026-06-30T21:00Z"],
+  [78,"2026-06-30","R32","2E","2I","Dallas","2026-06-30T17:00Z"],
+  [79,"2026-06-30","R32","1A","3E","Mexico City","2026-07-01T01:00Z"],
+  [80,"2026-07-01","R32","1L","3K","Atlanta","2026-07-01T16:00Z"],
+  [81,"2026-07-01","R32","1D","3B","San Francisco","2026-07-02T00:00Z"],
+  [82,"2026-07-01","R32","1G","3I","Seattle","2026-07-01T20:00Z"],
+  [83,"2026-07-02","R32","2K","2L","Toronto","2026-07-02T23:00Z"],
+  [84,"2026-07-02","R32","1H","2J","Los Angeles","2026-07-02T19:00Z"],
+  [85,"2026-07-02","R32","1B","3J","Vancouver","2026-07-03T03:00Z"],
+  [86,"2026-07-03","R32","1J","2H","Miami","2026-07-03T22:00Z"],
+  [87,"2026-07-03","R32","1K","3L","Kansas City","2026-07-04T01:30Z"],
+  [88,"2026-07-03","R32","2D","2G","Dallas","2026-07-03T18:00Z"],
+  [89,"2026-07-04","R16","W74","W77","Philadelphia","2026-07-04T21:00Z"],
+  [90,"2026-07-04","R16","W73","W75","Houston","2026-07-04T17:00Z"],
+  [91,"2026-07-05","R16","W76","W78","New York/NJ","2026-07-05T20:00Z"],
+  [92,"2026-07-05","R16","W79","W80","Mexico City","2026-07-06T00:00Z"],
+  [93,"2026-07-06","R16","W83","W84","Dallas","2026-07-06T19:00Z"],
+  [94,"2026-07-06","R16","W81","W82","Seattle","2026-07-07T00:00Z"],
+  [95,"2026-07-07","R16","W86","W88","Atlanta","2026-07-07T16:00Z"],
+  [96,"2026-07-07","R16","W85","W87","Vancouver","2026-07-07T20:00Z"],
+  [97,"2026-07-09","QF","W89","W90","Boston","2026-07-09T20:00Z"],
+  [98,"2026-07-10","QF","W93","W94","Los Angeles","2026-07-10T19:00Z"],
+  [99,"2026-07-11","QF","W91","W92","Miami","2026-07-11T21:00Z"],
+  [100,"2026-07-11","QF","W95","W96","Kansas City","2026-07-12T01:00Z"],
+  [101,"2026-07-14","SF","W97","W98","Dallas","2026-07-14T19:00Z"],
+  [102,"2026-07-15","SF","W99","W100","Atlanta","2026-07-15T19:00Z"],
+  [103,"2026-07-18","THIRD","L101","L102","Miami","2026-07-18T21:00Z"],
+  [104,"2026-07-19","FIN","W101","W102","New York/NJ","2026-07-19T19:00Z"]
+];
+const ALL_MATCHES = MATCHES.concat(KO_MATCHES);
 const SEED_RESULTS = {1:[2,0], 2:[2,1]}; // June 11: Mexico 2-0 South Africa, South Korea 2-1 Czechia
 
 // ---------- state ----------
 const LS_KEY = "wc2026-results-v1";
+const LS_PEN_KEY = "wc2026-penalties-v1";
 let results = loadResults();
+let penalties = loadPenalties();
 const liveScores = {}; // in-progress scores from auto-sync, not persisted
 function loadResults(){
   try{
@@ -230,11 +301,56 @@ function loadResults(){
 function saveResults(){
   localStorage.setItem(LS_KEY, JSON.stringify(results));
 }
+function loadPenalties(){
+  try{ return JSON.parse(localStorage.getItem(LS_PEN_KEY) || "{}"); }catch(e){ return {}; }
+}
+function savePenalties(){
+  localStorage.setItem(LS_PEN_KEY, JSON.stringify(penalties));
+}
 
-const DATES = [...new Set(MATCHES.map(m=>m[1]))];
+const DATES = [...new Set(ALL_MATCHES.map(m=>m[1]))];
 const todayISO = new Date().toISOString().slice(0,10);
 let dayIdx = Math.max(0, DATES.findIndex(d=>d>=todayISO));
 if (todayISO > DATES[DATES.length-1]) dayIdx = DATES.length-1;
+
+// ---------- knockout bracket resolution ----------
+function groupComplete(g){
+  return MATCHES.filter(m=>m[2]===g).every(m=>results[m[0]]);
+}
+function resolveCode(code){
+  if (TEAMS[code]) return code;
+  let mm;
+  if ((mm = /^([123])([A-L])$/.exec(code))){
+    if (!groupComplete(mm[2])) return null;
+    return computeTable(mm[2], results)[+mm[1]-1].t;
+  }
+  if ((mm = /^([WL])(\d+)$/.exec(code))){
+    const outcome = matchOutcome(+mm[2]);
+    return outcome ? (mm[1]==="W" ? outcome.winner : outcome.loser) : null;
+  }
+  return null;
+}
+function matchOutcome(mid){
+  const km = KO_MATCHES.find(x=>x[0]===mid);
+  const r = results[mid];
+  if (!km || !r) return null;
+  const h = resolveCode(km[3]), a = resolveCode(km[4]);
+  if (!h || !a) return null;
+  const [hg,ag] = r;
+  if (hg>ag) return {winner:h, loser:a};
+  if (ag>hg) return {winner:a, loser:h};
+  const p = penalties[mid];
+  if (!p || p[0]===p[1]) return null;
+  return p[0]>p[1] ? {winner:h, loser:a} : {winner:a, loser:h};
+}
+function slotLabel(code){
+  if (TEAMS[code]) return TEAMS[code][0];
+  let mm;
+  if ((mm = /^([123])([A-L])$/.exec(code))) return `${{1:"Winner",2:"Runner-up",3:"3rd place"}[mm[1]]} Gr.${mm[2]}`;
+  if ((mm = /^W(\d+)$/.exec(code))) return `Winner M${mm[1]}`;
+  if ((mm = /^L(\d+)$/.exec(code))) return `Loser M${mm[1]}`;
+  return "TBD";
+}
 
 // ---------- helpers ----------
 function fmtDate(iso){
@@ -267,7 +383,7 @@ function countdownText(m){
 }
 setInterval(()=>{
   document.querySelectorAll(".cd").forEach(el=>{
-    const m = MATCHES.find(x=>x[0]===+el.dataset.mid);
+    const m = ALL_MATCHES.find(x=>x[0]===+el.dataset.mid);
     const t = countdownText(m);
     if (!t) el.parentElement.remove();
     else { el.textContent = t; el.classList.toggle("live", t.startsWith("●")); }
@@ -289,7 +405,7 @@ function espnCode(c){
 async function syncResults(){
   const note = document.getElementById("syncnote");
   try{
-    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260627");
+    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719");
     const j = await r.json();
     let changed = false;
     (j.events||[]).forEach(e=>{
@@ -299,15 +415,32 @@ async function syncResults(){
       const away = comp.competitors.find(c=>c.homeAway==="away");
       const H = home && espnCode(home), A = away && espnCode(away);
       if (!H || !A) return;
-      const m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      let m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      let group = true;
+      if (!m){
+        group = false;
+        m = KO_MATCHES.find(km=>{
+          const h = resolveCode(km[3]), a = resolveCode(km[4]);
+          return h && a && ((h===H&&a===A)||(h===A&&a===H));
+        });
+      }
       if (!m) return;
-      const id = m[0], flip = m[3]===A; // ESPN orientation vs ours
+      const id = m[0];
+      const homeCode = group ? m[3] : resolveCode(m[3]);
+      const flip = homeCode===A; // ESPN orientation vs ours
       const hs = +(flip?away:home).score, as = +(flip?home:away).score;
       const st = e.status && e.status.type;
       if (st && st.completed){
         delete liveScores[id];
         const cur = results[id];
         if (!cur || cur[0]!==hs || cur[1]!==as){ results[id]=[hs,as]; changed = true; }
+        if (!group && hs===as){
+          const hp = +(flip?away:home).shootoutScore, ap = +(flip?home:away).shootoutScore;
+          if (!isNaN(hp) && !isNaN(ap) && hp!==ap){
+            const curp = penalties[id];
+            if (!curp || curp[0]!==hp || curp[1]!==ap){ penalties[id]=[hp,ap]; savePenalties(); changed = true; }
+          }
+        }
       } else if (st && st.state==="in"){
         const clock = (e.status.displayClock || st.shortDetail || "").toString();
         const prev = liveScores[id];
@@ -320,6 +453,7 @@ async function syncResults(){
       if (!typing){
         if (!document.getElementById("view-matches").classList.contains("hidden")) renderMatches();
         if (!document.getElementById("view-groups").classList.contains("hidden")) renderGroups();
+        if (!document.getElementById("view-bracket").classList.contains("hidden")) renderBracket();
       }
     }
     note.textContent = "🔄 Scores auto-update every 5 min · last sync " + new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
@@ -335,7 +469,7 @@ function renderDayStrip(){
   const strip = document.getElementById("daystrip");
   strip.innerHTML = "";
   DATES.forEach((d,i)=>{
-    const ms = MATCHES.filter(m=>m[1]===d);
+    const ms = ALL_MATCHES.filter(m=>m[1]===d);
     const done = ms.filter(m=>results[m[0]]).length;
     const pill = document.createElement("div");
     pill.className = "daypill" + (i===dayIdx?" sel":"") + (done===ms.length?" done": done>0?" partial":"");
@@ -354,26 +488,42 @@ function renderMatches(){
   document.getElementById("nextday").disabled = dayIdx===DATES.length-1;
   const list = document.getElementById("matchlist");
   list.innerHTML = "";
-  const ms = MATCHES.filter(m=>m[1]===DATES[dayIdx]);
+  const ms = ALL_MATCHES.filter(m=>m[1]===DATES[dayIdx]);
   ms.forEach(m=>{
-    const [id,,grp,h,a,venue] = m;
+    const [id,,grp,hRaw,aRaw,venue] = m;
+    const isGroup = !!GROUPS[grp];
+    const h = isGroup ? hRaw : resolveCode(hRaw);
+    const a = isGroup ? aRaw : resolveCode(aRaw);
     const r = results[id];
+    const pen = penalties[id];
+    const enterable = !!(h && a);
+    const tagText = isGroup ? `Group ${grp}` : ROUND_LABEL[grp];
+    const homeHTML = h ? `<span>${TEAMS[h][0]}</span>${flagImg(h,30)}` : `<span class="tbd">${slotLabel(hRaw)}</span>`;
+    const awayHTML = a ? `${flagImg(a,30)}<span>${TEAMS[a][0]}</span>` : `<span class="tbd">${slotLabel(aRaw)}</span>`;
     const card = document.createElement("div");
     card.className = "match";
     card.innerHTML = `
-      <div class="meta"><span class="grp">Group ${grp}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
+      <div class="meta"><span class="grp">${tagText}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
       <div class="row">
-        <div class="team right"><span>${TEAMS[h][0]}</span>${flagImg(h,30)}</div>
+        <div class="team right">${homeHTML}</div>
         <div class="score">
-          <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}">
+          <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}" ${enterable?"":"disabled"}>
           <span class="dash">–</span>
-          <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}">
+          <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}" ${enterable?"":"disabled"}>
         </div>
-        <div class="team">${flagImg(a,30)}<span>${TEAMS[a][0]}</span></div>
+        <div class="team">${awayHTML}</div>
       </div>
+      ${!isGroup && r && r[0]===r[1] ? `
+      <div class="pens">
+        <span>Penalties:</span>
+        <input type="number" min="0" max="20" id="ph${id}" value="${pen?pen[0]:""}">
+        <span class="dash">–</span>
+        <input type="number" min="0" max="20" id="pa${id}" value="${pen?pen[1]:""}">
+      </div>` : ""}
       ${(()=>{ const t = countdownText(m); return t?`<div class="cdwrap"><span class="cd${t.startsWith("●")?" live":""}" data-mid="${id}">${t}</span></div>`:""; })()}
     `;
     list.appendChild(card);
+    if (!enterable) return;
     const hi = card.querySelector(`#h${id}`), ai = card.querySelector(`#a${id}`);
     const onchange = ()=>{
       const hv = hi.value.trim(), av = ai.value.trim();
@@ -383,6 +533,17 @@ function renderMatches(){
     };
     hi.addEventListener("change", onchange);
     ai.addEventListener("change", onchange);
+    const phi = card.querySelector(`#ph${id}`), pai = card.querySelector(`#pa${id}`);
+    if (phi && pai){
+      const ponchange = ()=>{
+        const pv = phi.value.trim(), av2 = pai.value.trim();
+        if (pv!=="" && av2!=="" && +pv>=0 && +av2>=0 && +pv!==+av2){
+          penalties[id] = [+pv, +av2]; savePenalties(); renderMatches();
+        }
+      };
+      phi.addEventListener("change", ponchange);
+      pai.addEventListener("change", ponchange);
+    }
   });
   if (!ms.length) list.innerHTML = `<div class="empty-day">No matches this day.</div>`;
 }
@@ -495,20 +656,118 @@ document.getElementById("runsim").onclick = ()=>{
     const t0 = performance.now();
     const res = runSimulation(5000);
     renderChances(res);
-    const played = Object.keys(results).length;
+    const played = MATCHES.filter(m=>results[m[0]]).length;
     status.textContent = `Done in ${((performance.now()-t0)/1000).toFixed(1)}s — based on ${played} entered result${played===1?"":"s"}, 5,000 tournament simulations.`;
   }, 30);
 };
+
+// ---------- bracket ----------
+const BRACKET_HALVES = [
+  {r32:[74,77,73,75,83,84,81,82], r16:[89,90,93,94], qf:[97,98], sf:101, groups:["A","B","C","D","E","F"]},
+  {r32:[76,78,79,80,86,88,85,87], r16:[91,92,95,96], qf:[99,100], sf:102, groups:["G","H","I","J","K","L"]}
+];
+const GROUP_COLORS = {A:"#4ade80",B:"#f87171",C:"#fbbf24",D:"#60a5fa",E:"#c084fc",F:"#2dd4bf",G:"#fb923c",H:"#38bdf8",I:"#f472b6",J:"#a3e635",K:"#818cf8",L:"#facc15"};
+function bTeamRow(code, id, isHome){
+  const c = resolveCode(code);
+  const r = results[id];
+  const score = r ? (isHome?r[0]:r[1]) : null;
+  if (c) return `<div class="brow"><img src="https://flagcdn.com/w40/${TEAMS[c][1]}.png" alt="" loading="lazy"><span class="code">${c}</span>${score!=null?`<span class="bscore">${score}</span>`:""}</div>`;
+  return `<div class="brow"><span class="code tbd">${code}</span></div>`;
+}
+function bNode(id, x, y, w, cls, cap){
+  const km = KO_MATCHES.find(k=>k[0]===id);
+  cap = cap || `MATCH ${id}`;
+  return `<div class="bnode${cls?" "+cls:""}" style="left:${x}px; top:${y-20}px; width:${w}px; height:40px;">
+    <div class="bcap">${cap}</div>
+    ${bTeamRow(km[3], id, true)}${bTeamRow(km[4], id, false)}
+  </div>`;
+}
+function bLine(x1,y1,x2,y2){
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)" stroke-width="2"/>`;
+}
+function bElbow(xFrom, yA, yB, xTo){
+  const xMid = xFrom + (xTo-xFrom)/2;
+  return bLine(xFrom,yA,xMid,yA) + bLine(xFrom,yB,xMid,yB) + bLine(xMid,yA,xMid,yB) + bLine(xMid,(yA+yB)/2,xTo,(yA+yB)/2);
+}
+function bGroupCard(g, x, y, w, h){
+  const tbl = computeTable(g, results);
+  const rows = tbl.map((s,i)=>`<div class="bgrow${i<2?" q1":i===2?" q3":""}"><img src="https://flagcdn.com/w40/${TEAMS[s.t][1]}.png" alt="">${s.t}</div>`).join("");
+  return `<div class="bgcard" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px; border-top-color:${GROUP_COLORS[g]}"><h4>Group ${g}</h4>${rows}</div>`;
+}
+function renderBracket(){
+  const ROWH=64, BOXW=110, GROUPW=128, GAP=30, totalH=8*ROWH, FINALW=128;
+  let x=0;
+  const cols={};
+  cols.groupL=x; x+=GROUPW+GAP;
+  cols.r32L=x; x+=BOXW+GAP;
+  cols.r16L=x; x+=BOXW+GAP;
+  cols.qfL=x; x+=BOXW+GAP;
+  cols.sfL=x; x+=BOXW+GAP;
+  cols.final=x; x+=FINALW+GAP;
+  cols.sfR=x; x+=BOXW+GAP;
+  cols.qfR=x; x+=BOXW+GAP;
+  cols.r16R=x; x+=BOXW+GAP;
+  cols.r32R=x; x+=BOXW+GAP;
+  cols.groupR=x; x+=GROUPW;
+  const totalW=x;
+  const extraTop=60, extraBottom=110;
+  const totalSvgH = totalH+extraTop+extraBottom;
+
+  let html="", svg="";
+  const sfY=[];
+  BRACKET_HALVES.forEach((half,side)=>{
+    const isLeft = side===0;
+    const xR32 = isLeft?cols.r32L:cols.r32R, xR16=isLeft?cols.r16L:cols.r16R, xQF=isLeft?cols.qfL:cols.qfR, xSF=isLeft?cols.sfL:cols.sfR, xGroup=isLeft?cols.groupL:cols.groupR;
+
+    const y32s = half.r32.map((id,i)=> extraTop + i*ROWH + ROWH/2);
+    half.r32.forEach((id,i)=> html += bNode(id, xR32, y32s[i], BOXW));
+
+    const y16s = half.r16.map((id,j)=>{
+      const yA=y32s[2*j], yB=y32s[2*j+1], yC=(yA+yB)/2;
+      svg += bElbow(isLeft?xR32+BOXW:xR32, yA, yB, isLeft?xR16:xR16+BOXW);
+      html += bNode(id, xR16, yC, BOXW);
+      return yC;
+    });
+
+    const yQFs = half.qf.map((id,k)=>{
+      const yA=y16s[2*k], yB=y16s[2*k+1], yC=(yA+yB)/2;
+      svg += bElbow(isLeft?xR16+BOXW:xR16, yA, yB, isLeft?xQF:xQF+BOXW);
+      html += bNode(id, xQF, yC, BOXW);
+      return yC;
+    });
+
+    const yA=yQFs[0], yB=yQFs[1], ySF=(yA+yB)/2;
+    svg += bElbow(isLeft?xQF+BOXW:xQF, yA, yB, isLeft?xSF:xSF+BOXW);
+    html += bNode(half.sf, xSF, ySF, BOXW, "", `SEMI-FINAL ${side+1}`);
+    sfY.push(ySF);
+
+    const cardH = totalH/6 - 6;
+    half.groups.forEach((g,i)=> html += bGroupCard(g, xGroup, extraTop + i*(totalH/6) + 4, GROUPW, cardH));
+  });
+
+  const yFinal = (sfY[0]+sfY[1])/2;
+  svg += bLine(cols.sfL+BOXW, sfY[0], cols.final, yFinal);
+  svg += bLine(cols.sfR, sfY[1], cols.final+FINALW, yFinal);
+  html += bNode(104, cols.final, yFinal, FINALW, "bfinal", "🏆 FINAL");
+  html += `<div class="btrophy" style="left:${cols.final+FINALW/2}px; top:${yFinal-72}px;">🏆</div>`;
+  html += bNode(103, cols.final, totalH+extraTop+50, FINALW, "bthird", "3RD PLACE");
+
+  document.getElementById("bracketwrap").innerHTML = `<div class="bracket-scroll"><div class="bracket-wrap" style="width:${totalW}px; height:${totalSvgH}px;">
+    <svg width="${totalW}" height="${totalSvgH}" style="position:absolute; top:0; left:0;">${svg}</svg>
+    ${html}
+  </div></div>`;
+}
 
 // ---------- tabs ----------
 document.querySelectorAll(".tab").forEach(tab=>{
   tab.onclick = ()=>{
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     tab.classList.add("active");
-    ["matches","groups","chances"].forEach(v=>{
+    ["matches","groups","chances","bracket"].forEach(v=>{
       document.getElementById("view-"+v).classList.toggle("hidden", v!==tab.dataset.view);
     });
     if (tab.dataset.view==="groups") renderGroups();
+    if (tab.dataset.view==="bracket") renderBracket();
     if (tab.dataset.view==="chances" && !document.getElementById("chancesgrid").children.length)
       document.getElementById("runsim").click();
   };
