@@ -76,6 +76,28 @@
   .legend{color:var(--muted); font-size:.78rem; margin:12px 4px; text-align:center;}
   .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin:0 4px 0 12px;}
 
+  /* bracket */
+  .bracket-scroll{overflow-x:auto; padding:26px 4px 10px;}
+  .bracket-wrap{position:relative; margin:0 auto;}
+  .bnode{position:absolute; background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.35);}
+  .bnode .bcap{position:absolute; top:-16px; left:0; right:0; text-align:center; font-size:.6rem; color:var(--muted); font-weight:700; letter-spacing:.03em; white-space:nowrap;}
+  .bnode .brow{display:flex; align-items:center; gap:5px; padding:0 7px; font-size:.72rem; font-weight:700; height:50%;}
+  .bnode .brow:first-child{border-bottom:1px solid var(--line);}
+  .bnode .brow img{width:15px; flex:0 0 auto; border-radius:2px;}
+  .bnode .brow .code{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bnode .brow .code.tbd{color:var(--muted); font-style:italic; font-weight:500; font-size:.68rem;}
+  .bnode .brow .bscore{font-weight:800; color:var(--accent); font-size:.78rem;}
+  .bnode.bfinal{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 2px 10px rgba(251,191,36,.25);}
+  .bnode.bfinal .bcap{color:var(--gold);}
+  .bnode.bthird .bcap{color:var(--muted);}
+  .bgcard{position:absolute; background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--accent2); border-radius:8px; padding:4px 7px; overflow:hidden;}
+  .bgcard h4{font-size:.68rem; margin-bottom:1px; color:var(--text); line-height:1.2;}
+  .bgcard .bgrow{display:flex; align-items:center; gap:4px; font-size:.6rem; color:var(--muted); line-height:1.32;}
+  .bgcard .bgrow.q1{color:var(--accent); font-weight:700;}
+  .bgcard .bgrow.q3{color:var(--gold); font-weight:700;}
+  .bgcard .bgrow img{width:12px; border-radius:1px;}
+  .btrophy{position:absolute; font-size:1.6rem; text-align:center; width:60px; margin-left:-30px;}
+
   /* chances */
   .sim-head{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:16px; flex-wrap:wrap;}
   .sim-head button{background:var(--accent); color:#0d1321; border:none; border-radius:10px; padding:10px 22px; font-weight:700; font-size:.95rem; cursor:pointer;}
@@ -129,6 +151,7 @@
   <button class="tab active" data-view="matches">📅 Matches</button>
   <button class="tab" data-view="groups">📊 Groups</button>
   <button class="tab" data-view="chances">🎲 Qualification chances</button>
+  <button class="tab" data-view="bracket">🏆 Bracket</button>
 </div>
 <main>
   <section id="view-matches">
@@ -153,6 +176,11 @@
     </div>
     <div class="groups-grid" id="chancesgrid"></div>
     <div class="note">Green = chance of finishing top 2 · Gold = chance of advancing as one of the 8 best third-placed teams.<br>Round of 32: top 2 of each group + 8 best thirds (32 of 48 teams advance).</div>
+  </section>
+
+  <section id="view-bracket" class="hidden">
+    <div class="legend">Live bracket · resolved teams shown in full, undecided slots show their qualification code (e.g. <b>1A</b> = Group A winner, <b>W74</b> = winner of Match 74) until determined.</div>
+    <div id="bracketwrap"></div>
   </section>
 </main>
 
@@ -425,6 +453,7 @@ async function syncResults(){
       if (!typing){
         if (!document.getElementById("view-matches").classList.contains("hidden")) renderMatches();
         if (!document.getElementById("view-groups").classList.contains("hidden")) renderGroups();
+        if (!document.getElementById("view-bracket").classList.contains("hidden")) renderBracket();
       }
     }
     note.textContent = "🔄 Scores auto-update every 5 min · last sync " + new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
@@ -632,15 +661,113 @@ document.getElementById("runsim").onclick = ()=>{
   }, 30);
 };
 
+// ---------- bracket ----------
+const BRACKET_HALVES = [
+  {r32:[74,77,73,75,83,84,81,82], r16:[89,90,93,94], qf:[97,98], sf:101, groups:["A","B","C","D","E","F"]},
+  {r32:[76,78,79,80,86,88,85,87], r16:[91,92,95,96], qf:[99,100], sf:102, groups:["G","H","I","J","K","L"]}
+];
+const GROUP_COLORS = {A:"#4ade80",B:"#f87171",C:"#fbbf24",D:"#60a5fa",E:"#c084fc",F:"#2dd4bf",G:"#fb923c",H:"#38bdf8",I:"#f472b6",J:"#a3e635",K:"#818cf8",L:"#facc15"};
+function bTeamRow(code, id, isHome){
+  const c = resolveCode(code);
+  const r = results[id];
+  const score = r ? (isHome?r[0]:r[1]) : null;
+  if (c) return `<div class="brow"><img src="https://flagcdn.com/w40/${TEAMS[c][1]}.png" alt="" loading="lazy"><span class="code">${c}</span>${score!=null?`<span class="bscore">${score}</span>`:""}</div>`;
+  return `<div class="brow"><span class="code tbd">${code}</span></div>`;
+}
+function bNode(id, x, y, w, cls, cap){
+  const km = KO_MATCHES.find(k=>k[0]===id);
+  cap = cap || `MATCH ${id}`;
+  return `<div class="bnode${cls?" "+cls:""}" style="left:${x}px; top:${y-20}px; width:${w}px; height:40px;">
+    <div class="bcap">${cap}</div>
+    ${bTeamRow(km[3], id, true)}${bTeamRow(km[4], id, false)}
+  </div>`;
+}
+function bLine(x1,y1,x2,y2){
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)" stroke-width="2"/>`;
+}
+function bElbow(xFrom, yA, yB, xTo){
+  const xMid = xFrom + (xTo-xFrom)/2;
+  return bLine(xFrom,yA,xMid,yA) + bLine(xFrom,yB,xMid,yB) + bLine(xMid,yA,xMid,yB) + bLine(xMid,(yA+yB)/2,xTo,(yA+yB)/2);
+}
+function bGroupCard(g, x, y, w, h){
+  const tbl = computeTable(g, results);
+  const rows = tbl.map((s,i)=>`<div class="bgrow${i<2?" q1":i===2?" q3":""}"><img src="https://flagcdn.com/w40/${TEAMS[s.t][1]}.png" alt="">${s.t}</div>`).join("");
+  return `<div class="bgcard" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px; border-top-color:${GROUP_COLORS[g]}"><h4>Group ${g}</h4>${rows}</div>`;
+}
+function renderBracket(){
+  const ROWH=64, BOXW=110, GROUPW=128, GAP=30, totalH=8*ROWH, FINALW=128;
+  let x=0;
+  const cols={};
+  cols.groupL=x; x+=GROUPW+GAP;
+  cols.r32L=x; x+=BOXW+GAP;
+  cols.r16L=x; x+=BOXW+GAP;
+  cols.qfL=x; x+=BOXW+GAP;
+  cols.sfL=x; x+=BOXW+GAP;
+  cols.final=x; x+=FINALW+GAP;
+  cols.sfR=x; x+=BOXW+GAP;
+  cols.qfR=x; x+=BOXW+GAP;
+  cols.r16R=x; x+=BOXW+GAP;
+  cols.r32R=x; x+=BOXW+GAP;
+  cols.groupR=x; x+=GROUPW;
+  const totalW=x;
+  const extraTop=60, extraBottom=110;
+  const totalSvgH = totalH+extraTop+extraBottom;
+
+  let html="", svg="";
+  const sfY=[];
+  BRACKET_HALVES.forEach((half,side)=>{
+    const isLeft = side===0;
+    const xR32 = isLeft?cols.r32L:cols.r32R, xR16=isLeft?cols.r16L:cols.r16R, xQF=isLeft?cols.qfL:cols.qfR, xSF=isLeft?cols.sfL:cols.sfR, xGroup=isLeft?cols.groupL:cols.groupR;
+
+    const y32s = half.r32.map((id,i)=> extraTop + i*ROWH + ROWH/2);
+    half.r32.forEach((id,i)=> html += bNode(id, xR32, y32s[i], BOXW));
+
+    const y16s = half.r16.map((id,j)=>{
+      const yA=y32s[2*j], yB=y32s[2*j+1], yC=(yA+yB)/2;
+      svg += bElbow(isLeft?xR32+BOXW:xR32, yA, yB, isLeft?xR16:xR16+BOXW);
+      html += bNode(id, xR16, yC, BOXW);
+      return yC;
+    });
+
+    const yQFs = half.qf.map((id,k)=>{
+      const yA=y16s[2*k], yB=y16s[2*k+1], yC=(yA+yB)/2;
+      svg += bElbow(isLeft?xR16+BOXW:xR16, yA, yB, isLeft?xQF:xQF+BOXW);
+      html += bNode(id, xQF, yC, BOXW);
+      return yC;
+    });
+
+    const yA=yQFs[0], yB=yQFs[1], ySF=(yA+yB)/2;
+    svg += bElbow(isLeft?xQF+BOXW:xQF, yA, yB, isLeft?xSF:xSF+BOXW);
+    html += bNode(half.sf, xSF, ySF, BOXW, "", `SEMI-FINAL ${side+1}`);
+    sfY.push(ySF);
+
+    const cardH = totalH/6 - 6;
+    half.groups.forEach((g,i)=> html += bGroupCard(g, xGroup, extraTop + i*(totalH/6) + 4, GROUPW, cardH));
+  });
+
+  const yFinal = (sfY[0]+sfY[1])/2;
+  svg += bLine(cols.sfL+BOXW, sfY[0], cols.final, yFinal);
+  svg += bLine(cols.sfR, sfY[1], cols.final+FINALW, yFinal);
+  html += bNode(104, cols.final, yFinal, FINALW, "bfinal", "🏆 FINAL");
+  html += `<div class="btrophy" style="left:${cols.final+FINALW/2}px; top:${yFinal-72}px;">🏆</div>`;
+  html += bNode(103, cols.final, totalH+extraTop+50, FINALW, "bthird", "3RD PLACE");
+
+  document.getElementById("bracketwrap").innerHTML = `<div class="bracket-scroll"><div class="bracket-wrap" style="width:${totalW}px; height:${totalSvgH}px;">
+    <svg width="${totalW}" height="${totalSvgH}" style="position:absolute; top:0; left:0;">${svg}</svg>
+    ${html}
+  </div></div>`;
+}
+
 // ---------- tabs ----------
 document.querySelectorAll(".tab").forEach(tab=>{
   tab.onclick = ()=>{
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     tab.classList.add("active");
-    ["matches","groups","chances"].forEach(v=>{
+    ["matches","groups","chances","bracket"].forEach(v=>{
       document.getElementById("view-"+v).classList.toggle("hidden", v!==tab.dataset.view);
     });
     if (tab.dataset.view==="groups") renderGroups();
+    if (tab.dataset.view==="bracket") renderBracket();
     if (tab.dataset.view==="chances" && !document.getElementById("chancesgrid").children.length)
       document.getElementById("runsim").click();
   };
