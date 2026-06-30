@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="FIFA World Cup 2026 tracker — live results, group standings, and qualification chances, updated every 5 minutes.">
+<meta name="description" content="FIFA World Cup 2026 tracker — live results, group standings, and qualification chances from Matchday 1 through the Final, updated every 5 minutes.">
 <title>World Cup 2026 Tracker</title>
 <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
 <style>
@@ -52,6 +52,9 @@
   .score input:focus{outline:none; border-color:var(--accent);}
   .score input.filled{border-color:var(--accent); background:#16301f;}
   .score .dash{color:var(--muted); font-weight:700;}
+  .team .tbd{color:var(--muted); font-style:italic; font-weight:500; font-size:.88rem;}
+  .pens{display:flex; align-items:center; justify-content:center; gap:6px; margin-top:8px; color:var(--muted); font-size:.78rem;}
+  .pens input{width:34px; height:30px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:.85rem; text-align:center;}
   .empty-day{color:var(--muted); text-align:center; padding:40px 0;}
   .cdwrap{text-align:center; margin-top:10px;}
   .cd{display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--accent2); font-size:.78rem; padding:3px 12px; border-radius:99px; font-weight:600;}
@@ -215,11 +218,51 @@ const MATCHES = [
   [69,"2026-06-27","K","COL","POR","Miami","2026-06-27T23:30Z"],[70,"2026-06-27","K","COD","UZB","Atlanta","2026-06-27T23:30Z"],
   [71,"2026-06-27","J","ALG","AUT","Kansas City","2026-06-28T02:00Z"],[72,"2026-06-27","J","JOR","ARG","Dallas","2026-06-28T02:00Z"]
 ];
+// knockout stage: [id, date(venue-local), round, home-slot, away-slot, venue, kickoff UTC]
+// slot codes: "1A"/"2A"/"3A" = winner/runner-up/3rd-place of group A; "W73" = winner of match 73; "L101" = loser of match 101
+const ROUND_LABEL = {R32:"Round of 32", R16:"Round of 16", QF:"Quarter-final", SF:"Semi-final", THIRD:"3rd Place Play-off", FIN:"Final"};
+const KO_MATCHES = [
+  [73,"2026-06-28","R32","2A","2B","Los Angeles","2026-06-28T19:00Z"],
+  [74,"2026-06-29","R32","1E","3D","Boston","2026-06-29T20:30Z"],
+  [75,"2026-06-29","R32","1F","2C","Monterrey","2026-06-30T01:00Z"],
+  [76,"2026-06-29","R32","1C","2F","Houston","2026-06-29T17:00Z"],
+  [77,"2026-06-30","R32","1I","3F","New York/NJ","2026-06-30T21:00Z"],
+  [78,"2026-06-30","R32","2E","2I","Dallas","2026-06-30T17:00Z"],
+  [79,"2026-06-30","R32","1A","3E","Mexico City","2026-07-01T01:00Z"],
+  [80,"2026-07-01","R32","1L","3K","Atlanta","2026-07-01T16:00Z"],
+  [81,"2026-07-01","R32","1D","3B","San Francisco","2026-07-02T00:00Z"],
+  [82,"2026-07-01","R32","1G","3I","Seattle","2026-07-01T20:00Z"],
+  [83,"2026-07-02","R32","2K","2L","Toronto","2026-07-02T23:00Z"],
+  [84,"2026-07-02","R32","1H","2J","Los Angeles","2026-07-02T19:00Z"],
+  [85,"2026-07-02","R32","1B","3J","Vancouver","2026-07-03T03:00Z"],
+  [86,"2026-07-03","R32","1J","2H","Miami","2026-07-03T22:00Z"],
+  [87,"2026-07-03","R32","1K","3L","Kansas City","2026-07-04T01:30Z"],
+  [88,"2026-07-03","R32","2D","2G","Dallas","2026-07-03T18:00Z"],
+  [89,"2026-07-04","R16","W74","W77","Philadelphia","2026-07-04T21:00Z"],
+  [90,"2026-07-04","R16","W73","W75","Houston","2026-07-04T17:00Z"],
+  [91,"2026-07-05","R16","W76","W78","New York/NJ","2026-07-05T20:00Z"],
+  [92,"2026-07-05","R16","W79","W80","Mexico City","2026-07-06T00:00Z"],
+  [93,"2026-07-06","R16","W83","W84","Dallas","2026-07-06T19:00Z"],
+  [94,"2026-07-06","R16","W81","W82","Seattle","2026-07-07T00:00Z"],
+  [95,"2026-07-07","R16","W86","W88","Atlanta","2026-07-07T16:00Z"],
+  [96,"2026-07-07","R16","W85","W87","Vancouver","2026-07-07T20:00Z"],
+  [97,"2026-07-09","QF","W89","W90","Boston","2026-07-09T20:00Z"],
+  [98,"2026-07-10","QF","W93","W94","Los Angeles","2026-07-10T19:00Z"],
+  [99,"2026-07-11","QF","W91","W92","Miami","2026-07-11T21:00Z"],
+  [100,"2026-07-11","QF","W95","W96","Kansas City","2026-07-12T01:00Z"],
+  [101,"2026-07-14","SF","W97","W98","Dallas","2026-07-14T19:00Z"],
+  [102,"2026-07-15","SF","W99","W100","Atlanta","2026-07-15T19:00Z"],
+  [103,"2026-07-18","THIRD","L101","L102","Miami","2026-07-18T21:00Z"],
+  [104,"2026-07-19","FIN","W101","W102","New York/NJ","2026-07-19T19:00Z"]
+];
+const ALL_MATCHES = MATCHES.concat(KO_MATCHES);
 const SEED_RESULTS = {1:[2,0], 2:[2,1]}; // June 11: Mexico 2-0 South Africa, South Korea 2-1 Czechia
 
 // ---------- state ----------
 const LS_KEY = "wc2026-results-v1";
+const LS_PEN_KEY = "wc2026-penalties-v1";
 let results = loadResults();
+let penalties = loadPenalties();
 const liveScores = {}; // in-progress scores from auto-sync, not persisted
 function loadResults(){
   try{
@@ -230,11 +273,56 @@ function loadResults(){
 function saveResults(){
   localStorage.setItem(LS_KEY, JSON.stringify(results));
 }
+function loadPenalties(){
+  try{ return JSON.parse(localStorage.getItem(LS_PEN_KEY) || "{}"); }catch(e){ return {}; }
+}
+function savePenalties(){
+  localStorage.setItem(LS_PEN_KEY, JSON.stringify(penalties));
+}
 
-const DATES = [...new Set(MATCHES.map(m=>m[1]))];
+const DATES = [...new Set(ALL_MATCHES.map(m=>m[1]))];
 const todayISO = new Date().toISOString().slice(0,10);
 let dayIdx = Math.max(0, DATES.findIndex(d=>d>=todayISO));
 if (todayISO > DATES[DATES.length-1]) dayIdx = DATES.length-1;
+
+// ---------- knockout bracket resolution ----------
+function groupComplete(g){
+  return MATCHES.filter(m=>m[2]===g).every(m=>results[m[0]]);
+}
+function resolveCode(code){
+  if (TEAMS[code]) return code;
+  let mm;
+  if ((mm = /^([123])([A-L])$/.exec(code))){
+    if (!groupComplete(mm[2])) return null;
+    return computeTable(mm[2], results)[+mm[1]-1].t;
+  }
+  if ((mm = /^([WL])(\d+)$/.exec(code))){
+    const outcome = matchOutcome(+mm[2]);
+    return outcome ? (mm[1]==="W" ? outcome.winner : outcome.loser) : null;
+  }
+  return null;
+}
+function matchOutcome(mid){
+  const km = KO_MATCHES.find(x=>x[0]===mid);
+  const r = results[mid];
+  if (!km || !r) return null;
+  const h = resolveCode(km[3]), a = resolveCode(km[4]);
+  if (!h || !a) return null;
+  const [hg,ag] = r;
+  if (hg>ag) return {winner:h, loser:a};
+  if (ag>hg) return {winner:a, loser:h};
+  const p = penalties[mid];
+  if (!p || p[0]===p[1]) return null;
+  return p[0]>p[1] ? {winner:h, loser:a} : {winner:a, loser:h};
+}
+function slotLabel(code){
+  if (TEAMS[code]) return TEAMS[code][0];
+  let mm;
+  if ((mm = /^([123])([A-L])$/.exec(code))) return `${{1:"Winner",2:"Runner-up",3:"3rd place"}[mm[1]]} Gr.${mm[2]}`;
+  if ((mm = /^W(\d+)$/.exec(code))) return `Winner M${mm[1]}`;
+  if ((mm = /^L(\d+)$/.exec(code))) return `Loser M${mm[1]}`;
+  return "TBD";
+}
 
 // ---------- helpers ----------
 function fmtDate(iso){
@@ -267,7 +355,7 @@ function countdownText(m){
 }
 setInterval(()=>{
   document.querySelectorAll(".cd").forEach(el=>{
-    const m = MATCHES.find(x=>x[0]===+el.dataset.mid);
+    const m = ALL_MATCHES.find(x=>x[0]===+el.dataset.mid);
     const t = countdownText(m);
     if (!t) el.parentElement.remove();
     else { el.textContent = t; el.classList.toggle("live", t.startsWith("●")); }
@@ -289,7 +377,7 @@ function espnCode(c){
 async function syncResults(){
   const note = document.getElementById("syncnote");
   try{
-    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260627");
+    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719");
     const j = await r.json();
     let changed = false;
     (j.events||[]).forEach(e=>{
@@ -299,15 +387,32 @@ async function syncResults(){
       const away = comp.competitors.find(c=>c.homeAway==="away");
       const H = home && espnCode(home), A = away && espnCode(away);
       if (!H || !A) return;
-      const m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      let m = MATCHES.find(x=>(x[3]===H&&x[4]===A)||(x[3]===A&&x[4]===H));
+      let group = true;
+      if (!m){
+        group = false;
+        m = KO_MATCHES.find(km=>{
+          const h = resolveCode(km[3]), a = resolveCode(km[4]);
+          return h && a && ((h===H&&a===A)||(h===A&&a===H));
+        });
+      }
       if (!m) return;
-      const id = m[0], flip = m[3]===A; // ESPN orientation vs ours
+      const id = m[0];
+      const homeCode = group ? m[3] : resolveCode(m[3]);
+      const flip = homeCode===A; // ESPN orientation vs ours
       const hs = +(flip?away:home).score, as = +(flip?home:away).score;
       const st = e.status && e.status.type;
       if (st && st.completed){
         delete liveScores[id];
         const cur = results[id];
         if (!cur || cur[0]!==hs || cur[1]!==as){ results[id]=[hs,as]; changed = true; }
+        if (!group && hs===as){
+          const hp = +(flip?away:home).shootoutScore, ap = +(flip?home:away).shootoutScore;
+          if (!isNaN(hp) && !isNaN(ap) && hp!==ap){
+            const curp = penalties[id];
+            if (!curp || curp[0]!==hp || curp[1]!==ap){ penalties[id]=[hp,ap]; savePenalties(); changed = true; }
+          }
+        }
       } else if (st && st.state==="in"){
         const clock = (e.status.displayClock || st.shortDetail || "").toString();
         const prev = liveScores[id];
@@ -335,7 +440,7 @@ function renderDayStrip(){
   const strip = document.getElementById("daystrip");
   strip.innerHTML = "";
   DATES.forEach((d,i)=>{
-    const ms = MATCHES.filter(m=>m[1]===d);
+    const ms = ALL_MATCHES.filter(m=>m[1]===d);
     const done = ms.filter(m=>results[m[0]]).length;
     const pill = document.createElement("div");
     pill.className = "daypill" + (i===dayIdx?" sel":"") + (done===ms.length?" done": done>0?" partial":"");
@@ -354,26 +459,42 @@ function renderMatches(){
   document.getElementById("nextday").disabled = dayIdx===DATES.length-1;
   const list = document.getElementById("matchlist");
   list.innerHTML = "";
-  const ms = MATCHES.filter(m=>m[1]===DATES[dayIdx]);
+  const ms = ALL_MATCHES.filter(m=>m[1]===DATES[dayIdx]);
   ms.forEach(m=>{
-    const [id,,grp,h,a,venue] = m;
+    const [id,,grp,hRaw,aRaw,venue] = m;
+    const isGroup = !!GROUPS[grp];
+    const h = isGroup ? hRaw : resolveCode(hRaw);
+    const a = isGroup ? aRaw : resolveCode(aRaw);
     const r = results[id];
+    const pen = penalties[id];
+    const enterable = !!(h && a);
+    const tagText = isGroup ? `Group ${grp}` : ROUND_LABEL[grp];
+    const homeHTML = h ? `<span>${TEAMS[h][0]}</span>${flagImg(h,30)}` : `<span class="tbd">${slotLabel(hRaw)}</span>`;
+    const awayHTML = a ? `${flagImg(a,30)}<span>${TEAMS[a][0]}</span>` : `<span class="tbd">${slotLabel(aRaw)}</span>`;
     const card = document.createElement("div");
     card.className = "match";
     card.innerHTML = `
-      <div class="meta"><span class="grp">Group ${grp}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
+      <div class="meta"><span class="grp">${tagText}</span><span>🕒 ${localKickoff(m)} · ${venue}</span></div>
       <div class="row">
-        <div class="team right"><span>${TEAMS[h][0]}</span>${flagImg(h,30)}</div>
+        <div class="team right">${homeHTML}</div>
         <div class="score">
-          <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}">
+          <input type="number" min="0" max="20" inputmode="numeric" id="h${id}" value="${r?r[0]:""}" class="${r?"filled":""}" ${enterable?"":"disabled"}>
           <span class="dash">–</span>
-          <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}">
+          <input type="number" min="0" max="20" inputmode="numeric" id="a${id}" value="${r?r[1]:""}" class="${r?"filled":""}" ${enterable?"":"disabled"}>
         </div>
-        <div class="team">${flagImg(a,30)}<span>${TEAMS[a][0]}</span></div>
+        <div class="team">${awayHTML}</div>
       </div>
+      ${!isGroup && r && r[0]===r[1] ? `
+      <div class="pens">
+        <span>Penalties:</span>
+        <input type="number" min="0" max="20" id="ph${id}" value="${pen?pen[0]:""}">
+        <span class="dash">–</span>
+        <input type="number" min="0" max="20" id="pa${id}" value="${pen?pen[1]:""}">
+      </div>` : ""}
       ${(()=>{ const t = countdownText(m); return t?`<div class="cdwrap"><span class="cd${t.startsWith("●")?" live":""}" data-mid="${id}">${t}</span></div>`:""; })()}
     `;
     list.appendChild(card);
+    if (!enterable) return;
     const hi = card.querySelector(`#h${id}`), ai = card.querySelector(`#a${id}`);
     const onchange = ()=>{
       const hv = hi.value.trim(), av = ai.value.trim();
@@ -383,6 +504,17 @@ function renderMatches(){
     };
     hi.addEventListener("change", onchange);
     ai.addEventListener("change", onchange);
+    const phi = card.querySelector(`#ph${id}`), pai = card.querySelector(`#pa${id}`);
+    if (phi && pai){
+      const ponchange = ()=>{
+        const pv = phi.value.trim(), av2 = pai.value.trim();
+        if (pv!=="" && av2!=="" && +pv>=0 && +av2>=0 && +pv!==+av2){
+          penalties[id] = [+pv, +av2]; savePenalties(); renderMatches();
+        }
+      };
+      phi.addEventListener("change", ponchange);
+      pai.addEventListener("change", ponchange);
+    }
   });
   if (!ms.length) list.innerHTML = `<div class="empty-day">No matches this day.</div>`;
 }
@@ -495,7 +627,7 @@ document.getElementById("runsim").onclick = ()=>{
     const t0 = performance.now();
     const res = runSimulation(5000);
     renderChances(res);
-    const played = Object.keys(results).length;
+    const played = MATCHES.filter(m=>results[m[0]]).length;
     status.textContent = `Done in ${((performance.now()-t0)/1000).toFixed(1)}s — based on ${played} entered result${played===1?"":"s"}, 5,000 tournament simulations.`;
   }, 30);
 };
